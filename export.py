@@ -84,7 +84,7 @@ def create_sql_dump(db_file, dump_file, drop_table=True):
             col_name, col_type = col_info[1], col_info[2]
             nullable = False
             cursor.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {col_name} IS NULL;")
+                f"SELECT COUNT(*) FROM {table} WHERE {col_name} IS NULL OR {col_name} = '';")
             null_count = cursor.fetchone()[0]
             if null_count > 0:
                 nullable = True
