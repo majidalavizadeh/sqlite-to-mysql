@@ -53,7 +53,7 @@ def sqlite_to_mysql_type(sqlite_type, max_length=None, nullable=False, max_value
 # Function to create the SQL dump file for MySQL
 
 
-def create_sql_dump(db_file, dump_file, drop_table=True):
+def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
@@ -103,48 +103,50 @@ def create_sql_dump(db_file, dump_file, drop_table=True):
                         max_values.get(col_name, 0), max_value)
             nullability[col_name] = nullable
 
-        # Write the table structures and data to the SQL dump file
+       # Write the table structures and data to the SQL dump file
         with open(dump_file, 'a') as f:
-            if drop_table:
-                f.write(f"\n\n-- Drop table if exists {table}\n")
-                f.write(f"DROP TABLE IF EXISTS {table};")
+            if export_mode in ("structure", "both"):
+                if drop_table:
+                    f.write(f"\n\n-- Drop table if exists {table}\n")
+                    f.write(f"DROP TABLE IF EXISTS {table};")
 
-            columns = ', '.join([
-                f"{col[1]} {sqlite_to_mysql_type(col[2], max_lengths.get(col[1]), nullability.get(col[1]), max_values.get(col[1]))}"
-                for col in columns_info
-            ])
-            table_create_query = f"\n\n-- Table structure for {table}\n"
-            table_create_query += f"CREATE TABLE {table} ({columns}) ENGINE={MYSQL_ENGINE} DEFAULT CHARSET={MYSQL_CHARSET} COLLATE={MYSQL_COLLATE};"
-            f.write(table_create_query)
+                columns = ', '.join([
+                    f"{col[1]} {sqlite_to_mysql_type(col[2], max_lengths.get(col[1]), nullability.get(col[1]), max_values.get(col[1]))}"
+                    for col in columns_info
+                ])
+                table_create_query = f"\n\n-- Table structure for {table}\n"
+                table_create_query += f"CREATE TABLE {table} ({columns}) ENGINE={MYSQL_ENGINE} DEFAULT CHARSET={MYSQL_CHARSET} COLLATE={MYSQL_COLLATE};"
+                f.write(table_create_query)
 
-            # Retrieve the data from the table
-            cursor.execute(f"SELECT * FROM {table};")
-            data = cursor.fetchall()
+            if export_mode in ("data", "both"):
+                # Retrieve the data from the table
+                cursor.execute(f"SELECT * FROM {table};")
+                data = cursor.fetchall()
 
-            total_rows = len(data)
-            print(f"Exporting {total_rows} rows from {table}...")
-            # Write the data insertion queries to the dump file
-            for row_num, row in enumerate(data, 1):
-                # Convert None to NULL in the data
-                row = [col if col is not None and col !=
-                       '' else 'NULL' for col in row]
+                total_rows = len(data)
+                print(f"Exporting {total_rows} rows from {table}...")
+                # Write the data insertion queries to the dump file
+                for row_num, row in enumerate(data, 1):
+                    # Convert None to NULL in the data
+                    row = [col if col is not None and col !=
+                           '' else 'NULL' for col in row]
 
-                # Check if Ctrl+C has been pressed
-                if ctrl_c_pressed:
-                    print("\nCtrl+C detected. Exiting gracefully.")
-                    sys.exit(0)
+                    # Check if Ctrl+C has been pressed
+                    if ctrl_c_pressed:
+                        print("\nCtrl+C detected. Exiting gracefully.")
+                        sys.exit(0)
 
-                # columns = ', '.join(repr(col) for col in row)
-                columns = ', '.join(
-                    'NULL' if col is None or col == '' else repr(col) for col in row)
-                # Replace 'NULL' with NULL
-                columns = columns.replace("'NULL'", "NULL")
+                    # columns = ', '.join(repr(col) for col in row)
+                    columns = ', '.join(
+                        'NULL' if col is None or col == '' else repr(col) for col in row)
+                    # Replace 'NULL' with NULL
+                    columns = columns.replace("'NULL'", "NULL")
 
-                f.write(f"\nINSERT INTO {table} VALUES ({columns});")
+                    f.write(f"\nINSERT INTO {table} VALUES ({columns});")
 
-                # Print progress for each row
-                print(
-                    f"Progress: {row_num}/{total_rows} rows exported.", end='\r')
+                    # Print progress for each row
+                    print(
+                        f"Progress: {row_num}/{total_rows} rows exported.", end='\r')
 
         # Print progress for the table
         print(f"\nTable {table} exported successfully.")
@@ -163,6 +165,8 @@ def display_help():
     print("                   If not provided, the SQLite database with .sql extension will be used as the default.")
     print("  --no-drop: (Optional) Prevents adding 'DROP TABLE IF EXISTS' statement in the SQL dump.")
     print("             By default, the statement will be included unless this parameter is specified.")
+    print("  --export-mode MODE: (Optional) Choose export mode: structure, data, or both (default)."
+          " If not provided, both structure and data will be exported.")
 
 
 def parse_arguments():
@@ -175,6 +179,8 @@ def parse_arguments():
                              "If not provided, the SQLite database with .sql extension will be used as the default.")
     parser.add_argument("--no-drop", action="store_true",
                         help="Prevents adding 'DROP TABLE IF EXISTS' statement in the SQL dump.")
+    parser.add_argument("--export-mode", choices=["structure", "data"],
+                        help="Choose export mode: structure or data.")
 
     return parser.parse_args()
 
@@ -183,6 +189,7 @@ def parse_arguments():
 if __name__ == '__main__':
     args = parse_arguments()
     sqlite_db_file = args.sqlite_db_file
+    export_mode = args.export_mode
 
     # If mysql_dump_file is not provided, use sqlite_db_file with .sql extension as default
     mysql_dump_file = args.mysql_dump_file if args.mysql_dump_file else os.path.splitext(
@@ -192,7 +199,14 @@ if __name__ == '__main__':
     drop_table = not args.no_drop
 
     # Call the create_sql_dump function for exporting SQLite to MySQL
-    create_sql_dump(sqlite_db_file, mysql_dump_file, drop_table)
+    if export_mode == "structure":
+        create_sql_dump(sqlite_db_file, mysql_dump_file,
+                        drop_table, export_mode)
+    elif export_mode == "data":
+        create_sql_dump(sqlite_db_file, mysql_dump_file,
+                        drop_table, export_mode)
+    else:
+        create_sql_dump(sqlite_db_file, mysql_dump_file, drop_table)
 
     if ctrl_c_pressed:
         print("Process terminated by user.")
