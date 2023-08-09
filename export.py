@@ -134,7 +134,12 @@ def create_sql_dump(db_file, dump_file, drop_table=True):
                     print("\nCtrl+C detected. Exiting gracefully.")
                     sys.exit(0)
 
-                columns = ', '.join(repr(col) for col in row)
+                # columns = ', '.join(repr(col) for col in row)
+                columns = ', '.join(
+                    'NULL' if col is None or col == '' else repr(col) for col in row)
+                # Replace 'NULL' with NULL
+                columns = columns.replace("'NULL'", "NULL")
+
                 f.write(f"\nINSERT INTO {table} VALUES ({columns});")
 
                 # Print progress for each row
