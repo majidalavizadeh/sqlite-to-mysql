@@ -125,6 +125,10 @@ def create_sql_dump(db_file, dump_file, drop_table=True):
             print(f"Exporting {total_rows} rows from {table}...")
             # Write the data insertion queries to the dump file
             for row_num, row in enumerate(data, 1):
+                # Convert None to NULL in the data
+                row = [col if col is not None and col !=
+                       '' else 'NULL' for col in row]
+
                 # Check if Ctrl+C has been pressed
                 if ctrl_c_pressed:
                     print("\nCtrl+C detected. Exiting gracefully.")
