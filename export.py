@@ -88,19 +88,20 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
             null_count = cursor.fetchone()[0]
             if null_count > 0:
                 nullable = True
-            else:
-                col_value = None
-                if col_type == 'TEXT':
-                    cursor.execute(
-                        f"SELECT MAX(LENGTH({col_name})) FROM {table};")
-                    max_length = cursor.fetchone()[0]
-                    max_lengths[col_name] = max(
-                        max_lengths.get(col_name, 0), max_length)
-                elif col_type == 'INTEGER':
-                    cursor.execute(f"SELECT MAX({col_name}) FROM {table};")
-                    max_value = cursor.fetchone()[0]
-                    max_values[col_name] = max(
-                        max_values.get(col_name, 0), max_value)
+
+            col_value = None
+            if col_type == 'TEXT':
+                cursor.execute(
+                    f"SELECT MAX(LENGTH({col_name})) FROM {table};")
+                max_length = cursor.fetchone()[0]
+                max_lengths[col_name] = max(
+                    max_lengths.get(col_name, 0), max_length)
+            elif col_type == 'INTEGER':
+                cursor.execute(f"SELECT MAX({col_name}) FROM {table};")
+                max_value = cursor.fetchone()[0]
+                max_values[col_name] = max(
+                    max_values.get(col_name, 0), max_value)
+
             nullability[col_name] = nullable
 
        # Write the table structures and data to the SQL dump file
