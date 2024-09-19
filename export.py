@@ -69,10 +69,10 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
         if table == 'sqlite_sequence':
             continue
 
-        print(f"\nReading table: {table} ({idx}/{total_tables})")
+        print(f"\nReading table: `{table}` ({idx}/{total_tables})")
 
         # Retrieve the table structure
-        cursor.execute(f"PRAGMA table_info({table});")
+        cursor.execute(f"PRAGMA table_info(`{table}`);")
         columns_info = cursor.fetchall()
 
         print("Checking the length of columns and nullability...")
@@ -84,7 +84,7 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
             col_name, col_type = col_info[1], col_info[2]
             nullable = False
             cursor.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {col_name} IS NULL OR {col_name} = '';")
+                f"SELECT COUNT(*) FROM `{table}` WHERE `{col_name}` IS NULL OR `{col_name}` = '';")
             null_count = cursor.fetchone()[0]
             if null_count > 0:
                 nullable = True
@@ -92,13 +92,13 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
             col_value = None
             if col_type == 'TEXT':
                 cursor.execute(
-                    f"SELECT MAX(LENGTH({col_name})) FROM {table};")
-                max_length = cursor.fetchone()[0]
+                    f"SELECT MAX(LENGTH(`{col_name}`)) FROM `{table}`;")
+                max_length = cursor.fetchone()[0] or 0
                 max_lengths[col_name] = max(
                     max_lengths.get(col_name, 0), max_length)
             elif col_type == 'INTEGER':
-                cursor.execute(f"SELECT MAX({col_name}) FROM {table};")
-                max_value = cursor.fetchone()[0]
+                cursor.execute(f"SELECT MAX(`{col_name}`) FROM `{table}`;")
+                max_value = cursor.fetchone()[0] or 0
                 max_values[col_name] = max(
                     max_values.get(col_name, 0), max_value)
 
@@ -108,24 +108,24 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
         with open(dump_file, 'a') as f:
             if export_mode in ("structure", "both"):
                 if drop_table:
-                    f.write(f"\n\n-- Drop table if exists {table}\n")
-                    f.write(f"DROP TABLE IF EXISTS {table};")
+                    f.write(f"\n\n-- Drop table if exists `{table}`\n")
+                    f.write(f"DROP TABLE IF EXISTS `{table}`;")
 
                 columns = ', '.join([
                     f"{col[1]} {sqlite_to_mysql_type(col[2], max_lengths.get(col[1]), nullability.get(col[1]), max_values.get(col[1]))}"
                     for col in columns_info
                 ])
-                table_create_query = f"\n\n-- Table structure for {table}\n"
-                table_create_query += f"CREATE TABLE {table} ({columns}) ENGINE={MYSQL_ENGINE} DEFAULT CHARSET={MYSQL_CHARSET} COLLATE={MYSQL_COLLATE};"
+                table_create_query = f"\n\n-- Table structure for `{table}`\n"
+                table_create_query += f"CREATE TABLE `{table}` ({columns}) ENGINE={MYSQL_ENGINE} DEFAULT CHARSET={MYSQL_CHARSET} COLLATE={MYSQL_COLLATE};"
                 f.write(table_create_query)
 
             if export_mode in ("data", "both"):
                 # Retrieve the data from the table
-                cursor.execute(f"SELECT * FROM {table};")
+                cursor.execute(f"SELECT * FROM `{table}`;")
                 data = cursor.fetchall()
 
                 total_rows = len(data)
-                print(f"Exporting {total_rows} rows from {table}...")
+                print(f"Exporting {total_rows} rows from `{table}`...")
                 # Write the data insertion queries to the dump file
                 for row_num, row in enumerate(data, 1):
                     # Convert None to NULL in the data
@@ -143,14 +143,14 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
                     # Replace 'NULL' with NULL
                     columns = columns.replace("'NULL'", "NULL")
 
-                    f.write(f"\nINSERT INTO {table} VALUES ({columns});")
+                    f.write(f"\nINSERT INTO `{table}` VALUES ({columns});")
 
                     # Print progress for each row
                     print(
                         f"Progress: {row_num}/{total_rows} rows exported.", end='\r')
 
         # Print progress for the table
-        print(f"\nTable {table} exported successfully.")
+        print(f"\nTable `{table}` exported successfully.")
 
     conn.close()
     # Add extra spaces to overwrite the loading indicator
