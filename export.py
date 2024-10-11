@@ -112,7 +112,7 @@ def create_sql_dump(db_file, dump_file, drop_table=True, export_mode="both"):
                     f.write(f"DROP TABLE IF EXISTS `{table}`;")
 
                 columns = ', '.join([
-                    f"{col[1]} {sqlite_to_mysql_type(col[2], max_lengths.get(col[1]), nullability.get(col[1]), max_values.get(col[1]))}"
+                    f"`{col[1]}` {sqlite_to_mysql_type(col[2], max_lengths.get(col[1]), nullability.get(col[1]), max_values.get(col[1]))}"
                     for col in columns_info
                 ])
                 table_create_query = f"\n\n-- Table structure for `{table}`\n"
